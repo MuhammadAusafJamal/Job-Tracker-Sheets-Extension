@@ -268,24 +268,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     setLoading(true);
 
     try {
-      const response = await fetch(webhookUrl, {
+      await fetch(webhookUrl, {
         method: 'POST',
+        mode: 'no-cors',
         headers: {
           'Content-Type': 'text/plain'
         },
         body: JSON.stringify(payload)
       });
-
-      let jsonResult = null;
-      try {
-        jsonResult = await response.json();
-      } catch (parseErr) {
-        // Fallback for redirected text response
-      }
-
-      if (jsonResult && jsonResult.result === "error") {
-        throw new Error(jsonResult.error || "Webhook failed to append row.");
-      }
 
       // Add to local history cache
       addToHistory({
