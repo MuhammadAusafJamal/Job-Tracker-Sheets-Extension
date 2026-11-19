@@ -49,7 +49,13 @@ function doPost(e) {
       throw new Error("Could not find or open target spreadsheet. Check your spreadsheet ID / permissions.");
     }
 
-    var sheet = ss.getSheets()[0];
+    // Find tracker sheet by common names or default to first sheet
+    var sheet = ss.getSheetByName("Job Tracker") || 
+                ss.getSheetByName("Job Applications") || 
+                ss.getSheetByName("Applications") || 
+                ss.getSheetByName("Tracker") || 
+                ss.getSheets()[0];
+
     var lastRow = sheet.getLastRow();
     var newRow = lastRow + 1;
 
@@ -80,6 +86,17 @@ function doPost(e) {
       var targetRange = sheet.getRange(newRow, 1, 1, 11);
       sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
       sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+    } else if (lastRow === 1) {
+      // Initialize dropdowns for brand new sheet
+      var statusRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["🟩 Applied", "Interviewing", "Offer", "Rejected", "Archived"], true)
+        .build();
+      sheet.getRange(newRow, 6).setDataValidation(statusRule);
+
+      var followUpRule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(["⏳ Not set", "Pending", "Followed up"], true)
+        .build();
+      sheet.getRange(newRow, 7).setDataValidation(followUpRule);
     }
 
     // 2. Safely construct hyperlink formula (validate URL scheme and escape quotes)

@@ -7,7 +7,8 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="header">
+  <!-- Header -->
+  <header class="header">
     <div class="logo-title">
       <div class="icon-badge">💼</div>
       <div>
@@ -17,104 +18,155 @@
     </div>
     <div class="header-actions">
       <a id="openSheetBtn" class="icon-btn" title="Open Google Sheet" target="_blank" href="#">📊</a>
-      <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+      <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Settings">⚙️</button>
     </div>
+  </header>
+
+  <!-- Notification & Status Banners -->
+  <div id="duplicateAlert" class="alert-banner warning hidden">
+    <span class="alert-icon">⚠️</span>
+    <span id="duplicateAlertText" class="alert-text"></span>
   </div>
 
-  <!-- Settings Box -->
-  <div id="settingsBox" class="settings-box hidden">
+  <div id="extractionBadge" class="extraction-badge hidden">
+    <span class="badge-dot"></span>
+    <span id="extractionBadgeText">Auto-detected from LinkedIn</span>
+  </div>
+
+  <!-- Main Tracking Form View -->
+  <main id="mainView">
+    <form id="jobForm" autocomplete="off">
+      <div class="form-group">
+        <label for="company">Company Name (Col A)</label>
+        <input type="text" id="company" required placeholder="e.g. Google, Stripe, Box Tech">
+      </div>
+
+      <div class="form-group">
+        <label for="title">Job Title (Col B)</label>
+        <input type="text" id="title" required placeholder="e.g. Software Engineer, Product Designer">
+      </div>
+
+      <div class="row">
+        <div class="form-group flex-1">
+          <label for="jobType">Job Type (Col C)</label>
+          <select id="jobType">
+            <option value="Full-time" selected>Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Contract">Contract</option>
+            <option value="Internship">Internship</option>
+            <option value="Freelance">Freelance</option>
+          </select>
+        </div>
+        <div class="form-group flex-1">
+          <label for="location">Location (Col D)</label>
+          <input type="text" id="location" placeholder="e.g. Remote, New York">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group flex-1">
+          <label for="salary">Salary (Col E)</label>
+          <input type="text" id="salary" placeholder="e.g. $120k - $150k">
+        </div>
+        <div class="form-group flex-1">
+          <label for="platform">Platform (Col H)</label>
+          <input type="text" id="platform" placeholder="e.g. LinkedIn, Indeed">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group flex-1">
+          <label for="status">Status (Col F)</label>
+          <select id="status">
+            <option value="🟩 Applied" selected>🟩 Applied</option>
+            <option value="Applied">Applied (plain)</option>
+            <option value="Interviewing">Interviewing</option>
+            <option value="Offer">Offer</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="form-group flex-1">
+          <label for="followUp">Follow-up (Col G)</label>
+          <select id="followUp">
+            <option value="⏳ Not set" selected>⏳ Not set</option>
+            <option value="Not set">Not set (plain)</option>
+            <option value="Pending">Pending</option>
+            <option value="Followed up">Followed up</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group flex-1">
+          <label for="resumeVersion">Resume Ver (Col I)</label>
+          <input type="text" id="resumeVersion" value="V2">
+        </div>
+        <div class="form-group flex-1">
+          <label for="notes">Notes (Col K)</label>
+          <input type="text" id="notes" placeholder="e.g. Referral, tech stack">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="url">Job URL (Col H Link)</label>
+        <input type="url" id="url" placeholder="https://...">
+      </div>
+
+      <div id="statusMessage" class="status-msg hidden"></div>
+
+      <button type="submit" id="submitBtn" class="btn-primary">
+        <span class="btn-text">Add to Google Sheet</span>
+        <span class="spinner hidden"></span>
+      </button>
+      <div class="shortcut-hint">Tip: Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to save</div>
+    </form>
+  </main>
+
+  <!-- Settings View (Clean Panel Switcher) -->
+  <section id="settingsView" class="settings-view hidden">
+    <div class="settings-header">
+      <h3>Configuration</h3>
+      <button id="closeSettingsBtn" class="btn-text-link">← Back to Form</button>
+    </div>
+
+    <!-- 1-Click Copy Sheet Template Card -->
+    <div class="template-card">
+      <div class="template-icon">📄</div>
+      <div class="template-info">
+        <h4>Need the Tracker Sheet?</h4>
+        <p>Get the official pre-formatted Google Sheet with script included.</p>
+        <a id="copyTemplateBtn" class="btn-template" target="_blank" href="https://docs.google.com/spreadsheets/d/1qGDNaaXIq0kEOxhhezXKxAFHd4pWqapF_tenbaiGYRI/copy">
+          📋 Make a Copy of Sheet
+        </a>
+      </div>
+    </div>
+
     <div class="form-group">
-      <label for="sheetUrl">Google Sheet URL:</label>
+      <label for="sheetUrl">Your Google Sheet URL:</label>
       <input type="url" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+      <span class="hint">The URL of your copied Google Sheet.</span>
     </div>
 
     <div class="form-group">
-      <label for="webhookUrl">Apps Script Web App URL:</label>
-      <input type="url" id="webhookUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <label for="webhookUrl">Apps Script Web App URL: <span class="required">*</span></label>
+      <input type="url" id="webhookUrl" placeholder="https://script.google.com/macros/s/.../exec" required>
+      <span class="hint">Generated from Extensions &gt; Apps Script &gt; Deploy.</span>
     </div>
 
-    <button id="saveSettingsBtn" class="btn-secondary" style="width:100%; margin-top:4px;">Save Settings</button>
-  </div>
+    <div id="settingsStatusMessage" class="status-msg hidden"></div>
 
-  <!-- Form Matching Exact Sheet Schema -->
-  <form id="jobForm">
-    <div class="form-group">
-      <label for="company">Company Name (Col A)</label>
-      <input type="text" id="company" required placeholder="e.g. Box Tech, Alpine Business...">
+    <button id="saveSettingsBtn" class="btn-primary">Save Settings</button>
+
+    <div class="setup-guide">
+      <h5>Quick 30-Second Setup:</h5>
+      <ol>
+        <li>Click <strong>Make a Copy of Sheet</strong> above.</li>
+        <li>In your new sheet, click <strong>Extensions &gt; Apps Script</strong>.</li>
+        <li>Click <strong>Deploy &gt; New deployment &gt; Web app</strong> (Who has access: <em>Anyone</em>).</li>
+        <li>Copy the Web App URL and paste it into the box above.</li>
+      </ol>
     </div>
-
-    <div class="form-group">
-      <label for="title">Job Title (Col B)</label>
-      <input type="text" id="title" required placeholder="e.g. Junior Software Engineer">
-    </div>
-
-    <div class="row">
-      <div class="form-group flex-1">
-        <label for="jobType">Job Type (Col C)</label>
-        <select id="jobType">
-          <option value="Full-time" selected>Full-time</option>
-          <option value="Part-time">Part-time</option>
-          <option value="Contract">Contract</option>
-          <option value="Internship">Internship</option>
-          <option value="Freelance">Freelance</option>
-        </select>
-      </div>
-      <div class="form-group flex-1">
-        <label for="location">Location (Col D)</label>
-        <input type="text" id="location" placeholder="e.g. Remote / Karachi">
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="form-group flex-1">
-        <label for="status">Status (Col F)</label>
-        <select id="status">
-          <option value="🟩 Applied" selected>🟩 Applied</option>
-          <option value="Applied">Applied (plain)</option>
-          <option value="Interviewing">Interviewing</option>
-          <option value="Offer">Offer</option>
-          <option value="Rejected">Rejected</option>
-        </select>
-      </div>
-      <div class="form-group flex-1">
-        <label for="followUp">Follow-up (Col G)</label>
-        <select id="followUp">
-          <option value="⏳ Not set" selected>⏳ Not set</option>
-          <option value="Not set">Not set (plain)</option>
-          <option value="Pending">Pending</option>
-          <option value="Followed up">Followed up</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="form-group flex-1">
-        <label for="platform">Platform (Col H Link)</label>
-        <input type="text" id="platform" placeholder="e.g. LinkedIn, Indeed">
-      </div>
-      <div class="form-group flex-1">
-        <label for="resumeVersion">Resume Ver (Col I)</label>
-        <input type="text" id="resumeVersion" value="V2">
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label for="url">Job URL (Link Target)</label>
-      <input type="url" id="url" placeholder="https://...">
-    </div>
-
-    <div class="form-group">
-      <label for="notes">Notes (Col K)</label>
-      <input type="text" id="notes" placeholder="Optional notes...">
-    </div>
-
-    <div id="statusMessage" class="status-msg hidden"></div>
-
-    <button type="submit" id="submitBtn" class="btn-primary">
-      <span class="btn-text">Add to Google Sheet</span>
-      <span class="spinner hidden"></span>
-    </button>
-  </form>
+  </section>
 
   <script src="popup.js"></script>
 </body>

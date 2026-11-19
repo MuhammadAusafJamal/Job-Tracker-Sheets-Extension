@@ -1,46 +1,79 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  // Views & Banners
+  const mainView = document.getElementById('mainView');
+  const settingsView = document.getElementById('settingsView');
+  const extractionBadge = document.getElementById('extractionBadge');
+  const extractionBadgeText = document.getElementById('extractionBadgeText');
+  const duplicateAlert = document.getElementById('duplicateAlert');
+  const duplicateAlertText = document.getElementById('duplicateAlertText');
+  const statusMessage = document.getElementById('statusMessage');
+  const settingsStatusMessage = document.getElementById('settingsStatusMessage');
+
+  // Form Inputs
+  const jobForm = document.getElementById('jobForm');
   const companyInput = document.getElementById('company');
   const titleInput = document.getElementById('title');
   const jobTypeInput = document.getElementById('jobType');
   const locationInput = document.getElementById('location');
+  const salaryInput = document.getElementById('salary');
   const statusInput = document.getElementById('status');
   const followUpInput = document.getElementById('followUp');
   const platformInput = document.getElementById('platform');
   const resumeVersionInput = document.getElementById('resumeVersion');
-  const urlInput = document.getElementById('url');
   const notesInput = document.getElementById('notes');
+  const urlInput = document.getElementById('url');
 
+  // Buttons
   const settingsBtn = document.getElementById('settingsBtn');
-  const settingsBox = document.getElementById('settingsBox');
-  const sheetUrlInput = document.getElementById('sheetUrl');
-  const webhookUrlInput = document.getElementById('webhookUrl');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
   const openSheetBtn = document.getElementById('openSheetBtn');
-
-  const jobForm = document.getElementById('jobForm');
   const submitBtn = document.getElementById('submitBtn');
   const btnText = submitBtn.querySelector('.btn-text');
   const spinner = submitBtn.querySelector('.spinner');
-  const statusMessage = document.getElementById('statusMessage');
 
-  // Default values (leave empty so users configure their own webhook/sheet securely)
-  const DEFAULT_SHEET_URL = "";
-  const DEFAULT_WEBHOOK_URL = "";
+  // Settings Inputs
+  const sheetUrlInput = document.getElementById('sheetUrl');
+  const webhookUrlInput = document.getElementById('webhookUrl');
 
-  // 1. Load saved settings
+  let activeTabUrl = "";
+
+  // 1. Navigation Switcher
+  function switchView(viewName) {
+    if (viewName === 'settings') {
+      mainView.classList.add('hidden');
+      settingsView.classList.remove('hidden');
+    } else {
+      settingsView.classList.add('hidden');
+      mainView.classList.remove('hidden');
+    }
+  }
+
+  settingsBtn.addEventListener('click', () => {
+    if (settingsView.classList.contains('hidden')) {
+      switchView('settings');
+    } else {
+      switchView('main');
+    }
+  });
+
+  closeSettingsBtn.addEventListener('click', () => {
+    switchView('main');
+  });
+
+  // 2. Load Saved Settings
   chrome.storage.sync.get(['jobTrackerWebhookUrl', 'jobTrackerSheetUrl', 'resumeVersion'], (res) => {
-    const currentSheetUrl = res.jobTrackerSheetUrl || DEFAULT_SHEET_URL;
-    sheetUrlInput.value = currentSheetUrl;
-    if (currentSheetUrl) {
-      openSheetBtn.href = currentSheetUrl;
+    if (res.jobTrackerSheetUrl) {
+      sheetUrlInput.value = res.jobTrackerSheetUrl;
+      openSheetBtn.href = res.jobTrackerSheetUrl;
     }
 
     if (res.jobTrackerWebhookUrl) {
       webhookUrlInput.value = res.jobTrackerWebhookUrl;
     } else {
-      // Prompt user to configure their webhook if not set
-      settingsBox.classList.remove('hidden');
-      showMessage('Please configure your Webhook URL in Settings (⚙️).', 'info');
+      // Prompt user to configure their webhook on first run
+      switchView('settings');
+      showSettingsMessage('Welcome! Please configure your Webhook URL to get started.', 'info');
     }
 
     if (res.resumeVersion) {
@@ -48,19 +81,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Open Sheet button handler
+  // Open Sheet button click
   openSheetBtn.addEventListener('click', (e) => {
     const url = sheetUrlInput.value.trim();
     if (!url || !url.startsWith('http')) {
       e.preventDefault();
-      settingsBox.classList.remove('hidden');
-      showMessage('Please enter your Google Sheet URL in Settings first.', 'error');
+      switchView('settings');
+      showSettingsMessage('Please paste your Google Sheet URL here first.', 'error');
     }
-  });
-
-  // Toggle settings
-  settingsBtn.addEventListener('click', () => {
-    settingsBox.classList.toggle('hidden');
   });
 
   // Save Settings
@@ -69,12 +97,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const webhookUrl = webhookUrlInput.value.trim();
 
     if (!webhookUrl) {
-      showMessage('Webhook URL is required.', 'error');
+      showSettingsMessage('Webhook URL is required.', 'error');
       return;
     }
 
     if (!webhookUrl.startsWith('https://script.google.com/macros/s/')) {
-      showMessage('Please enter a valid Google Apps Script Web App URL.', 'error');
+      showSettingsMessage('URL must start with: https://script.google.com/macros/s/', 'error');
       return;
     }
 
@@ -85,20 +113,51 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (sheetUrl) {
         openSheetBtn.href = sheetUrl;
       }
-      showMessage('Settings saved!', 'success');
+      showSettingsMessage('Settings saved successfully!', 'success');
       setTimeout(() => {
-        settingsBox.classList.add('hidden');
-        statusMessage.classList.add('hidden');
+        switchView('main');
+        settingsStatusMessage.classList.add('hidden');
       }, 1000);
     });
   });
 
-  // 2. Extract Data from active tab
+  // 3. Draft Auto-Saving (Anti-Data Loss)
+  function saveDraft() {
+    const draft = {
+      company: companyInput.value,
+      title: titleInput.value,
+      jobType: jobTypeInput.value,
+      location: locationInput.value,
+      salary: salaryInput.value,
+      status: statusInput.value,
+      followUp: followUpInput.value,
+      platform: platformInput.value,
+      resumeVersion: resumeVersionInput.value,
+      notes: notesInput.value,
+      url: urlInput.value,
+      savedAt: Date.now()
+    };
+    chrome.storage.local.set({ jobTrackerDraft: draft });
+  }
+
+  function clearDraft() {
+    chrome.storage.local.remove(['jobTrackerDraft']);
+  }
+
+  jobForm.addEventListener('input', saveDraft);
+  jobForm.addEventListener('change', saveDraft);
+
+  // 4. Extraction & Duplicate Detection from Active Tab
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.id && !tab.url.startsWith('chrome://') && !tab.url.startsWith('edge://')) {
+      activeTabUrl = tab.url;
       urlInput.value = tab.url;
 
+      // Check duplicates against history
+      checkDuplicateJob(tab.url);
+
+      // Execute precision scraper
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         files: ['extractor.js']
@@ -109,30 +168,74 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (extracted.company) companyInput.value = extracted.company;
         if (extracted.title) titleInput.value = extracted.title;
         if (extracted.location) locationInput.value = extracted.location;
+        if (extracted.salary) salaryInput.value = extracted.salary;
         if (extracted.platform) platformInput.value = extracted.platform;
         if (extracted.url) urlInput.value = extracted.url;
+
+        // Display extraction indicator badge
+        extractionBadgeText.textContent = `⚡ Auto-detected from ${extracted.platform}`;
+        extractionBadge.classList.remove('hidden');
       }
     }
   } catch (err) {
     console.warn('Auto-extraction skipped:', err);
   }
 
-  // 3. Handle Form Submit
+  // Restore draft if active tab has no auto-extracted content or user had an ongoing draft
+  chrome.storage.local.get(['jobTrackerDraft'], (res) => {
+    const draft = res.jobTrackerDraft;
+    // Restore if recent draft exists and form is mostly empty
+    if (draft && (!companyInput.value || !titleInput.value) && (Date.now() - draft.savedAt < 3600000)) {
+      if (draft.company) companyInput.value = draft.company;
+      if (draft.title) titleInput.value = draft.title;
+      if (draft.jobType) jobTypeInput.value = draft.jobType;
+      if (draft.location) locationInput.value = draft.location;
+      if (draft.salary) salaryInput.value = draft.salary;
+      if (draft.status) statusInput.value = draft.status;
+      if (draft.followUp) followUpInput.value = draft.followUp;
+      if (draft.platform) platformInput.value = draft.platform;
+      if (draft.resumeVersion) resumeVersionInput.value = draft.resumeVersion;
+      if (draft.notes) notesInput.value = draft.notes;
+      if (draft.url && !urlInput.value) urlInput.value = draft.url;
+    }
+  });
+
+  // Duplicate Check Helper
+  function checkDuplicateJob(pageUrl) {
+    chrome.storage.local.get(['savedJobsHistory'], (res) => {
+      const history = res.savedJobsHistory || [];
+      const match = history.find(item => item.url && pageUrl && item.url.split('?')[0] === pageUrl.split('?')[0]);
+      if (match) {
+        duplicateAlertText.textContent = `Already tracked on ${match.date} (${match.status})`;
+        duplicateAlert.classList.remove('hidden');
+      }
+    });
+  }
+
+  // 5. Keyboard Shortcut Support (Ctrl+Enter / Cmd+Enter to Submit)
+  jobForm.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      jobForm.requestSubmit();
+    }
+  });
+
+  // 6. Form Submission Handling
   jobForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const webhookUrl = webhookUrlInput.value.trim() || DEFAULT_WEBHOOK_URL;
-    const sheetUrl = sheetUrlInput.value.trim() || DEFAULT_SHEET_URL;
+    const webhookUrl = webhookUrlInput.value.trim();
+    const sheetUrl = sheetUrlInput.value.trim();
 
     if (!webhookUrl) {
-      settingsBox.classList.remove('hidden');
-      showMessage('Please configure your Webhook URL in Settings (⚙️) first.', 'error');
+      switchView('settings');
+      showSettingsMessage('Please configure your Webhook URL first.', 'error');
       return;
     }
 
     if (!webhookUrl.startsWith('https://script.google.com/macros/s/')) {
-      settingsBox.classList.remove('hidden');
-      showMessage('Invalid Webhook URL. It must start with https://script.google.com/macros/s/', 'error');
+      switchView('settings');
+      showSettingsMessage('Invalid Webhook URL format.', 'error');
       return;
     }
 
@@ -143,7 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       spreadsheetId = match[1];
     }
 
-    // Save resume version
+    // Persist resume version preference
     chrome.storage.sync.set({ resumeVersion: resumeVersionInput.value.trim() });
 
     const payload = {
@@ -153,6 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       title: titleInput.value.trim(),
       jobType: jobTypeInput.value,
       location: locationInput.value.trim(),
+      salary: salaryInput.value.trim(),
       status: statusInput.value,
       followUp: followUpInput.value,
       platform: platformInput.value.trim() || "Website",
@@ -164,14 +268,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     setLoading(true);
 
     try {
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
-        mode: 'no-cors',
         headers: {
           'Content-Type': 'text/plain'
         },
         body: JSON.stringify(payload)
       });
+
+      let jsonResult = null;
+      try {
+        jsonResult = await response.json();
+      } catch (parseErr) {
+        // Fallback for redirected text response
+      }
+
+      if (jsonResult && jsonResult.result === "error") {
+        throw new Error(jsonResult.error || "Webhook failed to append row.");
+      }
+
+      // Add to local history cache
+      addToHistory({
+        url: payload.url,
+        company: payload.company,
+        title: payload.title,
+        status: payload.status,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      });
+
+      // Clear draft on success
+      clearDraft();
 
       showMessage('✓ Successfully added to Google Sheet!', 'success');
       setTimeout(() => {
@@ -179,17 +305,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       }, 1200);
 
     } catch (err) {
-      console.error(err);
-      showMessage('Failed to send data: ' + err.message, 'error');
+      console.error('Submission error:', err);
+      showMessage('Error: ' + (err.message || 'Failed to connect to Apps Script webhook'), 'error');
     } finally {
       setLoading(false);
     }
   });
 
+  // History Helper (stores up to 50 recent entries)
+  function addToHistory(jobEntry) {
+    chrome.storage.local.get(['savedJobsHistory'], (res) => {
+      let history = res.savedJobsHistory || [];
+      history.unshift(jobEntry);
+      if (history.length > 50) history = history.slice(0, 50);
+      chrome.storage.local.set({ savedJobsHistory: history });
+    });
+  }
+
   function showMessage(text, type) {
     statusMessage.textContent = text;
     statusMessage.className = `status-msg ${type}`;
     statusMessage.classList.remove('hidden');
+  }
+
+  function showSettingsMessage(text, type) {
+    settingsStatusMessage.textContent = text;
+    settingsStatusMessage.className = `status-msg ${type}`;
+    settingsStatusMessage.classList.remove('hidden');
   }
 
   function setLoading(isLoading) {
