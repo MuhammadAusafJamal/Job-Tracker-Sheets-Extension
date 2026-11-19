@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Sheet Tracker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <div class="logo-title">
+      <div class="icon-badge">💼</div>
+      <div>
+        <h2>Job Tracker</h2>
+        <p class="subtitle">Direct Google Sheet Sync</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a id="openSheetBtn" class="icon-btn" title="Open Google Sheet" target="_blank" href="#">📊</a>
+      <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+    </div>
+  </div>
+
+  <!-- Settings Box -->
+  <div id="settingsBox" class="settings-box hidden">
+    <div class="form-group">
+      <label for="sheetUrl">Google Sheet URL:</label>
+      <input type="url" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+    </div>
+
+    <div class="form-group">
+      <label for="webhookUrl">Apps Script Web App URL:</label>
+      <input type="url" id="webhookUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+
+    <button id="saveSettingsBtn" class="btn-secondary" style="width:100%; margin-top:4px;">Save Settings</button>
+  </div>
+
+  <!-- Form Matching Exact Sheet Schema -->
+  <form id="jobForm">
+    <div class="form-group">
+      <label for="company">Company Name (Col A)</label>
+      <input type="text" id="company" required placeholder="e.g. Box Tech, Alpine Business...">
+    </div>
+
+    <div class="form-group">
+      <label for="title">Job Title (Col B)</label>
+      <input type="text" id="title" required placeholder="e.g. Junior Software Engineer">
+    </div>
+
+    <div class="row">
+      <div class="form-group flex-1">
+        <label for="jobType">Job Type (Col C)</label>
+        <select id="jobType">
+          <option value="Full-time" selected>Full-time</option>
+          <option value="Part-time">Part-time</option>
+          <option value="Contract">Contract</option>
+          <option value="Internship">Internship</option>
+          <option value="Freelance">Freelance</option>
+        </select>
+      </div>
+      <div class="form-group flex-1">
+        <label for="location">Location (Col D)</label>
+        <input type="text" id="location" placeholder="e.g. Remote / Karachi">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="form-group flex-1">
+        <label for="status">Status (Col F)</label>
+        <select id="status">
+          <option value="🟩 Applied" selected>🟩 Applied</option>
+          <option value="Applied">Applied (plain)</option>
+          <option value="Interviewing">Interviewing</option>
+          <option value="Offer">Offer</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+      </div>
+      <div class="form-group flex-1">
+        <label for="followUp">Follow-up (Col G)</label>
+        <select id="followUp">
+          <option value="⏳ Not set" selected>⏳ Not set</option>
+          <option value="Not set">Not set (plain)</option>
+          <option value="Pending">Pending</option>
+          <option value="Followed up">Followed up</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="form-group flex-1">
+        <label for="platform">Platform (Col H Link)</label>
+        <input type="text" id="platform" placeholder="e.g. LinkedIn, Indeed">
+      </div>
+      <div class="form-group flex-1">
+        <label for="resumeVersion">Resume Ver (Col I)</label>
+        <input type="text" id="resumeVersion" value="V2">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="url">Job URL (Link Target)</label>
+      <input type="url" id="url" placeholder="https://...">
+    </div>
+
+    <div class="form-group">
+      <label for="notes">Notes (Col K)</label>
+      <input type="text" id="notes" placeholder="Optional notes...">
+    </div>
+
+    <div id="statusMessage" class="status-msg hidden"></div>
+
+    <button type="submit" id="submitBtn" class="btn-primary">
+      <span class="btn-text">Add to Google Sheet</span>
+      <span class="spinner hidden"></span>
+    </button>
+  </form>
+
+  <script src="popup.js"></script>
+</body>
+</html>
