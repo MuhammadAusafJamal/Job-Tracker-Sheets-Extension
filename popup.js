@@ -23,25 +23,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   const spinner = submitBtn.querySelector('.spinner');
   const statusMessage = document.getElementById('statusMessage');
 
-  // Default Sheet URL
-  const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1qGDNaaXIq0kEOxhhezXKxAFHd4pWqapF_tenbaiGYRI/edit#gid=651196576";
-  const DEFAULT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz4SyeSh9ZnQ1LePDkqtcNFyMnOhBO7e1DMSwWk4DHdBE79BpRO4mp5NkvgA2slUgMN/exec";
+  // Default values (leave empty so users configure their own webhook/sheet securely)
+  const DEFAULT_SHEET_URL = "";
+  const DEFAULT_WEBHOOK_URL = "";
 
   // 1. Load saved settings
   chrome.storage.sync.get(['jobTrackerWebhookUrl', 'jobTrackerSheetUrl', 'resumeVersion'], (res) => {
     const currentSheetUrl = res.jobTrackerSheetUrl || DEFAULT_SHEET_URL;
     sheetUrlInput.value = currentSheetUrl;
-    openSheetBtn.href = currentSheetUrl;
+    if (currentSheetUrl) {
+      openSheetBtn.href = currentSheetUrl;
+    }
 
     if (res.jobTrackerWebhookUrl) {
       webhookUrlInput.value = res.jobTrackerWebhookUrl;
     } else {
-      webhookUrlInput.value = DEFAULT_WEBHOOK_URL;
-      chrome.storage.sync.set({ jobTrackerWebhookUrl: DEFAULT_WEBHOOK_URL });
+      // Prompt user to configure their webhook if not set
+      settingsBox.classList.remove('hidden');
+      showMessage('Please configure your Webhook URL in Settings (⚙️).', 'info');
     }
 
     if (res.resumeVersion) {
       resumeVersionInput.value = res.resumeVersion;
+    }
+  });
+
+  // Open Sheet button handler
+  openSheetBtn.addEventListener('click', (e) => {
+    const url = sheetUrlInput.value.trim();
+    if (!url || !url.startsWith('http')) {
+      e.preventDefault();
+      settingsBox.classList.remove('hidden');
+      showMessage('Please enter your Google Sheet URL in Settings first.', 'error');
     }
   });
 
@@ -60,11 +73,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!webhookUrl.startsWith('https://script.google.com/macros/s/')) {
+      showMessage('Please enter a valid Google Apps Script Web App URL.', 'error');
+      return;
+    }
+
     chrome.storage.sync.set({
       jobTrackerSheetUrl: sheetUrl,
       jobTrackerWebhookUrl: webhookUrl
     }, () => {
-      openSheetBtn.href = sheetUrl || '#';
+      if (sheetUrl) {
+        openSheetBtn.href = sheetUrl;
+      }
       showMessage('Settings saved!', 'success');
       setTimeout(() => {
         settingsBox.classList.add('hidden');
@@ -103,6 +123,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const webhookUrl = webhookUrlInput.value.trim() || DEFAULT_WEBHOOK_URL;
     const sheetUrl = sheetUrlInput.value.trim() || DEFAULT_SHEET_URL;
+
+    if (!webhookUrl) {
+      settingsBox.classList.remove('hidden');
+      showMessage('Please configure your Webhook URL in Settings (⚙️) first.', 'error');
+      return;
+    }
+
+    if (!webhookUrl.startsWith('https://script.google.com/macros/s/')) {
+      settingsBox.classList.remove('hidden');
+      showMessage('Invalid Webhook URL. It must start with https://script.google.com/macros/s/', 'error');
+      return;
+    }
 
     // Extract Spreadsheet ID from Google Sheet URL
     let spreadsheetId = "";

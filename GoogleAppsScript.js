@@ -3,7 +3,18 @@
  * Supports dynamic Google Sheet URL / ID passed from Chrome Extension
  */
 
-const DEFAULT_SPREADSHEET_ID = "1qGDNaaXIq0kEOxhhezXKxAFHd4pWqapF_tenbaiGYRI";
+// Optional fallback: ID of your Google Sheet (found in URL: /spreadsheets/d/<SPREADSHEET_ID>/edit)
+// Leave empty if deploying this script directly inside your target Google Sheet.
+const DEFAULT_SPREADSHEET_ID = "";
+
+function sanitizeCell(val) {
+  if (typeof val !== 'string') return val;
+  // Guard against spreadsheet formula injection (strings starting with =, +, -, @)
+  if (/^[=\+\-\@\t\r]/.test(val)) {
+    return "'" + val;
+  }
+  return val;
+}
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -24,14 +35,18 @@ function doPost(e) {
     var targetId = data.spreadsheetId || DEFAULT_SPREADSHEET_ID;
 
     var ss;
-    try {
-      ss = SpreadsheetApp.openById(targetId);
-    } catch (err) {
+    if (targetId && targetId.trim() !== "") {
+      try {
+        ss = SpreadsheetApp.openById(targetId.trim());
+      } catch (err) {
+        ss = SpreadsheetApp.getActiveSpreadsheet();
+      }
+    } else {
       ss = SpreadsheetApp.getActiveSpreadsheet();
     }
 
     if (!ss) {
-      throw new Error("Could not find spreadsheet with ID: " + targetId);
+      throw new Error("Could not find or open target spreadsheet. Check your spreadsheet ID / permissions.");
     }
 
     var sheet = ss.getSheets()[0];
@@ -43,17 +58,17 @@ function doPost(e) {
     var now = new Date();
     var formattedDate = months[now.getMonth()] + " " + now.getDate() + ", " + now.getFullYear();
 
-    var company = data.company || "";
-    var title = data.title || "";
-    var jobType = data.jobType || "Full-time";
-    var location = data.location || "Remote";
-    var salaryOrBlank = data.salary || "";
-    var status = data.status || "🟩 Applied";
-    var followUp = data.followUp || "⏳ Not set";
-    var platform = data.platform || "Website";
-    var url = data.url || "";
-    var resumeVer = data.resumeVersion || "V2";
-    var notes = data.notes || "";
+    var company = sanitizeCell(data.company || "");
+    var title = sanitizeCell(data.title || "");
+    var jobType = sanitizeCell(data.jobType || "Full-time");
+    var location = sanitizeCell(data.location || "Remote");
+    var salaryOrBlank = sanitizeCell(data.salary || "");
+    var status = sanitizeCell(data.status || "🟩 Applied");
+    var followUp = sanitizeCell(data.followUp || "⏳ Not set");
+    var platform = sanitizeCell(data.platform || "Website");
+    var url = (data.url || "").trim();
+    var resumeVer = sanitizeCell(data.resumeVersion || "V2");
+    var notes = sanitizeCell(data.notes || "");
 
     // Normalize emoji chips
     if (status === "Applied") status = "🟩 Applied";
@@ -67,21 +82,28 @@ function doPost(e) {
       sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
     }
 
-    // 2. Set Row Values (Col A to Col K)
-    var linkFormula = url ? '=HYPERLINK("' + url + '", "' + platform + ' Job Posting")' : "";
+    // 2. Safely construct hyperlink formula (validate URL scheme and escape quotes)
+    var linkFormula = "";
+    if (url && (url.indexOf("http://") === 0 || url.indexOf("https://") === 0)) {
+      var safeUrl = url.replace(/"/g, '""');
+      var safePlatform = platform.replace(/"/g, '""');
+      linkFormula = '=HYPERLINK("' + safeUrl + '", "' + safePlatform + ' Job Posting")';
+    } else {
+      linkFormula = sanitizeCell(url);
+    }
     
     var rowValues = [
       [
-        company,        // Col A: Company (Yellow)
+        company,        // Col A: Company
         title,          // Col B: Job Title
-        jobType,        // Col C: Job Type (Pink)
+        jobType,        // Col C: Job Type
         location,       // Col D: Location
-        salaryOrBlank,  // Col E: (Blank)
-        status,         // Col F: Dropdown (🟩 Applied)
-        followUp,       // Col G: Dropdown (⏳ Not set)
-        linkFormula,    // Col H: Hyperlink
-        resumeVer,      // Col I: Resume Version (V2)
-        formattedDate,  // Col J: Date (Aug 15, 2026)
+        salaryOrBlank,  // Col E: Salary
+        status,         // Col F: Status Dropdown
+        followUp,       // Col G: Follow-up Dropdown
+        linkFormula,    // Col H: Hyperlink Formula
+        resumeVer,      // Col I: Resume Version
+        formattedDate,  // Col J: Date Added
         notes           // Col K: Notes
       ]
     ];
